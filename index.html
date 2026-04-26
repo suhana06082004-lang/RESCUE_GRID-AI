@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RescueGrid AI | Tactical HUD</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00f3ff">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='none' stroke='%2300f3ff' stroke-width='4'/></svg>">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" />
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body id="hud-body">
+    <div class="scanlines"></div>
+
+    <div class="app-container boot-animation">
+        <header class="hud-header clip-edge">
+            <div class="sys-status">SYS.NET // <span class="blink-cyan">ONLINE</span> // GPS_LINKED</div>
+            <div class="threat-level" id="threat-indicator">L:1_NORMAL</div>
+            <h1 class="logo-text">RESCUE_GRID::<span>AI</span></h1>
+            <div class="sys-time" id="sys-time">00:00:00</div>
+        </header>
+
+        <aside class="sidebar clip-edge-bottom">
+            <div class="aida-module" id="aida-module">
+                <div class="aida-core" id="aida-core"><div class="core-ring ext"></div><div class="core-ring int"></div><div class="core-center"></div></div>
+                <div class="aida-text">
+                    <div class="sys-label">A.I.D.A. STATUS</div>
+                    <div class="aida-status-msg" id="aida-status-msg">AWAITING INPUT...</div>
+                </div>
+            </div>
+
+            <div class="reporting-section bracket-box" id="reporting-box">
+                <div class="box-label">COM_LINK::INBOUND</div>
+                <div class="input-wrap">
+                    <textarea id="crisis-input" spellcheck="false" placeholder="> INJECT RAW DISTRESS COMMS HERE..."></textarea>
+                    <div class="hud-crosshair-tl"></div><div class="hud-crosshair-br"></div>
+                </div>
+                <!-- Phase 6 Buttons -->
+                <div class="btn-group">
+                    <button id="camera-btn" class="tactical-btn secondary"><span class="material-symbols-outlined">photo_camera</span> SCAN</button>
+                    <button id="mic-btn" class="tactical-btn secondary"><span class="material-symbols-outlined" id="mic-icon">mic</span> VOICE</button>
+                    <button id="submit-btn" class="tactical-btn"><span class="material-symbols-outlined">radar</span> TRIAGE</button>
+                </div>
+                <div class="api-key-warning" id="api-key-warning">[SYS_ERR: GEMINI_KEY_MISSING]</div>
+            </div>
+
+            <div class="feed-section bracket-box">
+                <div class="box-label">LIVE_EVENT_LOG</div>
+                <div id="crisis-feed" class="feed-container"></div>
+            </div>
+        </aside>
+
+        <!-- Main Area -->
+        <main class="map-container">
+            <div class="map-border tactical-glow" id="map-border">
+                <div id="map"></div>
+                <div class="map-overlay-grid"></div>
+            </div>
+
+            <!-- SIMULATION OVERLAYS -->
+            <div class="command-overlays">
+                <button id="gps-btn" class="tactical-btn utility-btn clip-edge-bottom" title="Sync to real world location">
+                    <span class="material-symbols-outlined">my_location</span> SYNC GPS
+                </button>
+                <button id="chaos-btn" class="tactical-btn danger-btn clip-edge-bottom" title="Mass Incident Simulator">
+                    <span class="material-symbols-outlined">warning</span> CHAOS MODE
+                </button>
+                <button id="quarantine-btn" class="tactical-btn danger-btn clip-edge-bottom" title="Draw Quarantine Exclusion Zone">
+                    <span class="material-symbols-outlined">pentagon</span> DRAW QUARANTINE
+                </button>
+                <button id="export-btn" class="tactical-btn utility-btn clip-edge-bottom" title="Download Report CSV">
+                    <span class="material-symbols-outlined">download</span> EXPORT A.A.R.
+                </button>
+                <button id="forecast-btn" class="tactical-btn utility-btn clip-edge-bottom" title="AI Predictive Forecasting">
+                    <span class="material-symbols-outlined">psychology</span> AI FORECAST
+                </button>
+                <button id="radar-btn" class="tactical-btn proxy-btn clip-edge-bottom" title="Toggle Live Weather Radar">
+                    <span class="material-symbols-outlined">storm</span> NEXRAD STORM
+                </button>
+                <button id="hud-mode-btn" class="tactical-btn proxy-btn clip-edge-bottom" title="Holographic Hardware Simulation">
+                    <span class="material-symbols-outlined">flip_to_back</span> PROJECT HUD
+                </button>
+            </div>
+            
+            <div class="map-controls-right">
+                <button id="drone-btn" class="tactical-btn utility-btn clip-edge-bottom" title="Toggle Drone Feed">
+                    <span class="material-symbols-outlined">satellite_alt</span> DRONE UPLINK
+                </button>
+                <!-- Phase 6 Chatbot Toggle -->
+                <button id="chat-toggle-btn" class="tactical-btn utility-btn clip-edge-bottom" title="Civilian First Aid Bot">
+                    <span class="material-symbols-outlined">health_and_safety</span> MED-BOT_AI
+                </button>
+            </div>
+
+            <!-- Phase 6: 1-Tap Offline SOS -->
+            <button class="panic-btn pulse-glow" id="panic-btn">
+                <span class="material-symbols-outlined">emergency</span>
+                <div class="panic-label">1-TAP OFFLINE SOS</div>
+            </button>
+
+            <!-- Target Stats -->
+            <div class="floating-stats clip-edge">
+                <div class="stat-box"><div class="stat-value" id="stat-total">00</div><div class="stat-label">TOTAL</div></div>
+                <div class="stat-box alert-box"><div class="stat-value text-red" id="stat-critical">00</div><div class="stat-label">CRITICAL</div></div>
+            </div>
+
+            <!-- DRONE VIDEO FEED MODAL -->
+            <div id="drone-modal" class="drone-modal hidden">
+                <div class="drone-header"><span>UAV_FEED_01 // ACTIVE</span><span class="recording-dot">REC</span></div>
+                <div class="drone-video-container">
+                    <div id="drone-map" class="drone-map-thermal"></div>
+                    <div class="thermal-scanline"></div>
+                    <div class="drone-crosshair"></div>
+                    <div class="drone-corners top-left"></div><div class="drone-corners top-right"></div><div class="drone-corners bottom-left"></div><div class="drone-corners bottom-right"></div>
+                    <div class="drone-telemetry" id="drone-telemetry">ALT: 1200FT | TGT: LOCK | SENSOR: FLIR</div>
+                </div>
+            </div>
+
+            <!-- P6 FIRST AID CHATBOT MODAL -->
+            <div id="chatbot-modal" class="chatbot-modal hidden bracket-box">
+                <div class="box-label">MED_BOT_ASSISTANT</div>
+                <div class="chat-history" id="chat-history">
+                    <div class="ai-msg">A.I.D.A Medical Subroutine active. State your emergency for immediate treatment instructions.</div>
+                </div>
+                <div class="chat-input-area">
+                    <button id="chat-mic-btn" class="tactical-btn secondary" style="flex:0; padding: 0 10px; border-right: none;" title="Voice Dictation"><span class="material-symbols-outlined" id="chat-mic-icon">mic</span></button>
+                    <input type="text" id="chat-input" placeholder="e.g. How to treat burns?">
+                    <button id="chat-send-btn" class="tactical-btn"><span class="material-symbols-outlined">send</span></button>
+                </div>
+                <button id="call-drone-btn" class="tactical-btn proxy-btn" style="width:100%; border-top: 1px solid var(--hud-border); font-size: 11px; padding: 8px;">
+                    <span class="material-symbols-outlined">mode_fan</span> REQUEST QUADCOPTER AIRDROP
+                </button>
+            </div>
+        </main>
+
+        <!-- SQUAD ROSTER SIDEBAR -->
+        <aside class="squad-sidebar clip-edge-bottom bracket-box">
+            <div class="box-label">LOGISTICS_MATRIX</div>
+            <div class="logistics-container">
+                <div class="log-item">
+                    <div class="log-header"><span>WATER_RATIONS</span><span id="res-water">100%</span></div>
+                    <div class="log-bar-bg"><div id="bar-water" class="log-bar cyan-bar" style="width: 100%"></div></div>
+                </div>
+                <div class="log-item">
+                    <div class="log-header"><span>MEDICAL_KITS</span><span id="res-med">100%</span></div>
+                    <div class="log-bar-bg"><div id="bar-med" class="log-bar green-bar" style="width: 100%"></div></div>
+                </div>
+                <div class="log-item">
+                    <div class="log-header"><span>EVAC_TRANSPORTS</span><span id="res-evac">100%</span></div>
+                    <div class="log-bar-bg"><div id="bar-evac" class="log-bar orange-bar" style="width: 100%"></div></div>
+                </div>
+            </div>
+
+            <div class="box-label mt-label">SQUAD_ROSTER</div>
+            <div class="squad-container" id="squad-container">
+                <div class="squad-card" data-squad="Alpha">
+                    <div class="squad-header"><span class="squad-title">SQ_ALPHA</span><span class="bpm-display">72 BPM</span></div>
+                    <div class="squad-spec text-dim">MED-EVAC</div>
+                    <div class="fuel-bar-container"><div class="fuel-bar" style="width: 100%"></div></div>
+                    <div class="squad-status status-ready">WAITING...</div>
+                </div>
+                <div class="squad-card" data-squad="Bravo">
+                    <div class="squad-header"><span class="squad-title">SQ_BRAVO</span><span class="bpm-display">68 BPM</span></div>
+                    <div class="squad-spec text-dim">HEAVY RESCUE</div>
+                    <div class="fuel-bar-container"><div class="fuel-bar" style="width: 100%"></div></div>
+                    <div class="squad-status status-ready">WAITING...</div>
+                </div>
+                <div class="squad-card" data-squad="Charlie">
+                    <div class="squad-header"><span class="squad-title">SQ_CHARLIE</span><span class="bpm-display">65 BPM</span></div>
+                    <div class="squad-spec text-dim">HAZMAT CON.</div>
+                    <div class="fuel-bar-container"><div class="fuel-bar" style="width: 100%"></div></div>
+                    <div class="squad-status status-ready">WAITING...</div>
+                </div>
+                <div class="squad-card" data-squad="Delta">
+                    <div class="squad-header"><span class="squad-title">SQ_DELTA</span><span class="bpm-display">74 BPM</span></div>
+                    <div class="squad-spec text-dim">SEARCH & RESCUE</div>
+                    <div class="fuel-bar-container"><div class="fuel-bar" style="width: 100%"></div></div>
+                    <div class="squad-status status-ready">WAITING...</div>
+                </div>
+                <div class="squad-card" data-squad="Echo">
+                    <div class="squad-header"><span class="squad-title">SQ_ECHO</span><span class="bpm-display">70 BPM</span></div>
+                    <div class="squad-spec text-dim">ENGINEERING</div>
+                    <div class="fuel-bar-container"><div class="fuel-bar" style="width: 100%"></div></div>
+                    <div class="squad-status status-ready">WAITING...</div>
+                </div>
+            </div>
+            <div id="exhaustion-alert" class="exhaustion-alert hidden">
+                <span class="material-symbols-outlined">warning</span>CRITICAL: SQUAD RESOURCES EXHAUSTED
+            </div>
+        </aside>
+    </div>
+
+    <!-- P7 SAFETY TICKER -->
+    <div class="safety-ticker-container">
+        <div class="safety-ticker-content">
+            <span class="warning-icon material-symbols-outlined">warning</span> // [PUBLIC SAFETY BROADCAST] :: EARTHQUAKE: DROP, COVER, AND HOLD ON. DO NOT EXIT BUILDINGS DURING TREMORS. :: FIRE: STAY LOW, AVOID ELEVATORS, PROCEED TO NEAREST EXIT. :: FLOODING: SEEK HIGHER GROUND IMMEDIATELY. DO NOT DRIVE THROUGH STANDING WATER. :: TSUNAMI: EVACUATE COASTLINE AND MOVE TO ELEVATION 30m+. :: RIOT: REMAIN INDOORS, SECURE PERIMETER. // [PUBLIC SAFETY BROADCAST] :: EARTHQUAKE: DROP, COVER, AND HOLD ON. :: FIRE: STAY LOW, AVOID ELEVATORS. // 
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin=""></script>
+    <script src="app.js"></script>
+    <!-- <script>
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then(r => console.log('PWA Ready')).catch(e => console.log('SW Fail'));
+    </script> -->
+</body>
+</html>
